@@ -1,0 +1,99 @@
+---
+title: "Data Processing"
+author: "Laura Brockington"
+date: "2023-03-23"
+output: pdf_document
+---
+
+```{r setup, message=F}
+#loading in necessary packages
+library(here); library(tidyverse); library(lubridate); library(zoo)
+library(trend); library(sf); library(leaflet); library(mapview); library(dataRetrieval); library(ggspatial); library(rgdal)
+
+#checking my working directory
+here()
+
+#setting my theme
+
+```
+
+```{r}
+#reading in my data file
+bat_data_raw <- read.csv(here("Data/Raw/Bat_Activity_Insect_Abundance_Data.csv"), 
+                     stringsAsFactors = TRUE)
+
+#setting date column as date class
+bat_data_raw$Date <- mdy(bat_data_raw$Date)
+```
+
+**Research questions**
+1. Have temperatures changed from 2017 to 2020 along the Colorado River in Grand Canyon, AZ?
+2. Has bat activity changed from 2017 to 2020 along the Colorado River in Grand Canyon, AZ?
+3. What factors most influence changes in bat activity (temperature, prey availability, moon phase, location)?
+
+```{r}
+#wrangling data to include only variables of interest for linear model
+bat_data_lm <-
+  bat_data_raw %>%
+  select(Date, LunarPhase, DailyTemp, Site, TotalCalls, TotalPreyRate)
+
+#exporting processed data file to processed folder in R project file
+write.csv(bat_data_lm, row.names = FALSE, 
+          file = "./Data/Processed/Bat_Activity_Insect_Abundance_Data_linearmodel.csv")
+
+#wrangling data to include only variables of interest for spatial analyses
+bat_data_spatial <-
+  bat_data_raw %>%
+  st_as_sf(coords = c('Longitude','Latitude'),
+           crs=4326) %>%
+  select(Date, LunarPhase, DailyTemp, Site, TotalCalls, TotalPreyRate, geometry)
+
+#retrieving water data from USGS
+siteNumber <- "09402500"
+COriverInfo <- readNWISsite(siteNumber)
+rawDailyData_COriver_discharge <- readNWISdv(
+  siteNumber, "00060", 
+  "1980-01-01", "2022-12-30"
+)
+
+#converting COriverInfo into spatial dataset
+COriver_discharge_site <-
+  COriverInfo %>%
+  st_as_sf(coords = c('dec_long_va','dec_lat_va'),
+           crs=4269)
+
+#reading in CO river
+CO_river_utm <- st_read('./Data/Raw/az_hydro_routesNAD83/az_hydro_routesNAD83.shp') %>% filter(NAME == "Colorado River")
+CO_river_utm <- st_zm(CO_river_utm)
+
+#transforming data to all be NAD83 UTM zone 12N (26912)
+bat_data_sf_utm <- st_transform(bat_data_spatial, 26912)
+CO_river_discharge_utm <- st_transform(COriver_discharge_site, 26912)
+
+#plotting COriverInfo
+ggplot() +
+  geom_sf(data = CO_river_utm, col = "blue") +
+  geom_sf(data = bat_data_sf_utm, col = "maroon") +
+  geom_sf(data = CO_river_discharge_utm, col = "green")
+
+"https://waterdata.usgs.gov/blog/dataretrieval/"
+```
+
+```{r}
+#exploring data
+dim(bat_data_lm)
+summary(bat_data_lm)
+ggplot(bat_data_lm, aes(x=DailyTemp, y=TotalCalls)) +
+  geom_point()
+
+dim(bat_data_spatial)
+summary(bat_data_spatial)
+ggplot() +
+  geom_sf(data = bat_data_spatial)
+```
+
+
+```{r}
+#source: https://www.usgs.gov/data/bat-activity-and-insect-abundance-data-along-colorado-river-grand-canyon-az
+```
+
