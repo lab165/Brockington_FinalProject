@@ -3,18 +3,23 @@ title: "Data Processing"
 author: "Laura Brockington"
 date: "2023-03-23"
 output: pdf_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, message=F}
 #loading in necessary packages
 library(here); library(tidyverse); library(lubridate); library(zoo)
-library(trend); library(sf); library(leaflet); library(mapview); library(dataRetrieval); library(ggspatial); library(rgdal)
+library(trend); library(sf); library(leaflet); 
+library(mapview); mapviewOptions(fgb = FALSE); library(dataRetrieval); library(ggspatial); library(rgdal); library(RColorBrewer); library(sp)
 
 #checking my working directory
 here()
 
 #setting my theme
 
+#setting mapview options
+mapviewOptions(basemaps = c("Esri.WorldShadedRelief", "OpenStreetMap.DE"))
 ```
 
 ```{r}
@@ -52,8 +57,8 @@ bat_data_spatial <-
 siteNumber <- "09402500"
 COriverInfo <- readNWISsite(siteNumber)
 rawDailyData_COriver_discharge <- readNWISdv(
-  siteNumber, "00060", 
-  "1980-01-01", "2022-12-30"
+  siteNumber, "00060", statCd = "00003",
+  "2017-04-29", "2020-10-22"
 )
 
 #converting COriverInfo into spatial dataset
@@ -71,10 +76,24 @@ bat_data_sf_utm <- st_transform(bat_data_spatial, 26912)
 CO_river_discharge_utm <- st_transform(COriver_discharge_site, 26912)
 
 #plotting COriverInfo
-ggplot() +
-  geom_sf(data = CO_river_utm, col = "blue") +
-  geom_sf(data = bat_data_sf_utm, col = "maroon") +
-  geom_sf(data = CO_river_discharge_utm, col = "green")
+overview_map <- mapView(CO_river_utm, 
+        color = "royalblue3",
+        map.types = "OpenStreetMap.DE",
+        layer.name = "Colorado River") + 
+  mapView(bat_data_sf_utm, 
+          zcol = "TotalCalls", 
+          cex = 3, 
+          lwd = 0.3,
+          alpha = 0.7,
+          col.regions = brewer.pal(10, "Reds"),
+          map.types = "OpenStreetMap.DE",
+          layer.name = "Bat Survey Sites (Total Calls)") + 
+  mapView(CO_river_discharge_utm,
+          col.regions = "gold",
+          map.types = "OpenStreetMap.DE",
+          layer.name = "Discharge Site")
+  
+overview_map@map %>% setView(-112.0777, 36.2, zoom = 8)
 
 "https://waterdata.usgs.gov/blog/dataretrieval/"
 ```
