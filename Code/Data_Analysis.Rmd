@@ -3,18 +3,102 @@ title: "Data Analysis"
 author: "Laura Brockington"
 date: "2023-03-27"
 output: pdf_document
+editor_options: 
+  chunk_output_type: console
 ---
 
-```{r}
-#linear model
+```{r time series}
+#time series analysis
+discharge_plot <- #plotting ozone concetration over time
+ggplot(daily_discharge_processed, aes(x = Date, y = discharge)) +
+  geom_line() +
+  ylab("Discharge (units)") +
+  xlab("Year") +
+  geom_smooth(method = lm, col = "royalblue") +
+  ggtitle("Colorado River Discharge during Bat Monitoring") +
+  scale_x_date(breaks = "years", date_labels = "%Y") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+print(discharge_plot)
 
+#there was a controlled flood of the Colorado River in the Grand Canyon Nov, 2018 (huge peak in graph).
+
+summary(daily_discharge_processed$discharge) #no NAs
+
+f_month <- month(first(daily_discharge_processed$Date))
+f_year <- year(first(daily_discharge_processed$Date))
+f_day <- day(first(daily_discharge_processed$Date))
+
+daily_discharge_ts <- ts(daily_discharge_processed$discharge, 
+                             start = c(f_year, f_month, f_day), 
+                             frequency = 365) #creating daily time series object
+
+daily_discharge_decomposed <- stl(daily_discharge_ts, s.window = "periodic")
+#decomposing the daily time series
+
+plot(daily_discharge_decomposed) #plotting the components
+
+daily_discharge_trend <- trend::smk.test(daily_discharge_ts)
+daily_discharge_trend
+summary(daily_discharge_trend)
+
+#there is a statistically significant trend (with seasonality)
+```
+
+```{r spatial}
+#spatial analysis
+
+#plotting COriverInfo
+overview_map <- mapView(CO_river_utm, 
+        color = "royalblue3",
+        map.types = "OpenStreetMap.DE",
+        layer.name = "Colorado River") + 
+  mapView(bat_data_sf_utm, 
+          zcol = "TotalCalls", 
+          cex = 3, 
+          lwd = 0.3,
+          alpha = 0.7,
+          col.regions = brewer.pal(10, "Reds"),
+          map.types = "OpenStreetMap.DE",
+          layer.name = "Bat Survey Sites (Total Calls)") + 
+  mapView(CO_river_discharge_utm,
+          col.regions = "gold",
+          map.types = "OpenStreetMap.DE",
+          layer.name = "Discharge Site")
+  
+overview_map@map %>% setView(-112.0777, 36.2, zoom = 8)
 
 ```
 
-```{r}
-#spatial analysis
+```{r linear model}
+#linear model
+bat_plot <-
+ggplot(bat_data_monthly, aes(x = Date, y = mean_calls)) +
+  geom_point() +
+  ylab("Mean # of Bat Calls") +
+  xlab("Date") +
+  geom_smooth(method = lm, col = "royalblue", se = F) +
+  ggtitle("Mean Monthly Bat Calls") +
+  scale_x_date(breaks = "2 months") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+print(bat_plot)
 
+bat_temp_plot <-
+ggplot(bat_data_monthly, aes(x = mean_temp, y = mean_calls)) +
+  geom_point() +
+  ylab("Mean # Bat Calls") +
+  xlab("Mean Temperature (C)") +
+  geom_smooth(method = lm, col = "royalblue", se = F) +
+  ggtitle("Mean Monthly Bat Calls") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+print(bat_temp_plot)
 
+bat_lunar_plot <-
+ggplot(bat_data_processed, aes(x = LunarPhase, y = TotalCalls)) +
+  geom_boxplot() +
+  ylab("# Bat Calls") +
+  xlab("Lunar Phase")
+print(bat_lunar_plot)
 
+#scale_x_date(breaks = "1 month", labels = date_format("%B"))
 ```
 

@@ -23,7 +23,7 @@ mapviewOptions(basemaps = c("Esri.WorldShadedRelief", "OpenStreetMap.DE"))
 ```
 
 ```{r}
-#reading in my data file
+#reading in my data file on bat activity
 bat_data_raw <- read.csv(here("Data/Raw/Bat_Activity_Insect_Abundance_Data.csv"), 
                      stringsAsFactors = TRUE)
 
@@ -32,15 +32,87 @@ bat_data_raw$Date <- mdy(bat_data_raw$Date)
 ```
 
 **Research questions**
-1. Have temperatures changed from 2017 to 2020 along the Colorado River in Grand Canyon, AZ?
-2. Has bat activity changed from 2017 to 2020 along the Colorado River in Grand Canyon, AZ?
-3. What factors most influence changes in bat activity (temperature, prey availability, moon phase, location)?
+1. What factors influence bat activity (temperature, prey availability, moon phase, location, discharge) along the Colorado River in the Grand Canyon?
+2. How did discharge in the Colorado River change during the course of the bat study (2017-2021)?
 
-```{r}
+**Hypotheses**
+1. Alt hypothesis: Temperature and prey availability significantly influenced bat activity along the Colorado River in the Grand Canyon.
+1. Null hypothesis: Temperature, prey availability, moon phase, location, and discharge had no effect on bat activity along the Colorado River in the Grand Canyon.
+
+2. Alt hypothesis: Discharge in the Colorado River significantly decreased from 2017 to 2021.
+2. Null hypothesis: Discharge in the Colorado River did not chage from 2017 to 2021.
+
+```{r bat data}
 #wrangling data to include only variables of interest for linear model
-bat_data_lm <-
+bat_data_processed <-
   bat_data_raw %>%
-  select(Date, LunarPhase, DailyTemp, Site, TotalCalls, TotalPreyRate)
+  select(Date, LunarPhase, DailyTemp, Site, TotalCalls, AquaticPreyRate, TerrestrialPreyRate, TotalPreyRate)
+
+bat_data_monthly_calls <-
+  bat_data_raw %>%
+  separate(Date, c("Year","Month", "Null")) %>% 
+  mutate(Date = my(paste0(Month,"-",Year))) %>%
+  group_by(Year, Month) %>%
+  summarize(mean_calls = mean(TotalCalls)) %>%
+  select(Year, Month, mean_calls)
+
+bat_data_monthly_prey <-
+  bat_data_raw %>%
+  separate(Date, c("Year","Month", "Null")) %>% 
+  mutate(Date = my(paste0(Month,"-",Year))) %>%
+  group_by(Year, Month) %>%
+  summarize(mean_prey = mean(TotalPreyRate)) %>%
+  select(Year, Month, mean_prey)
+
+bat_data_monthly_aquprey <-
+  bat_data_raw %>%
+  separate(Date, c("Year","Month", "Null")) %>% 
+  mutate(Date = my(paste0(Month,"-",Year))) %>%
+  group_by(Year, Month) %>%
+  summarize(mean_aqu_prey = mean(AquaticPreyRate)) %>%
+  select(Year, Month, mean_aqu_prey)
+
+bat_data_monthly_terprey <-
+  bat_data_raw %>%
+  separate(Date, c("Year","Month", "Null")) %>% 
+  mutate(Date = my(paste0(Month,"-",Year))) %>%
+  group_by(Year, Month) %>%
+  summarize(mean_ter_prey = mean(TerrestrialPreyRate)) %>%
+  select(Year, Month, mean_ter_prey)
+
+bat_data_monthly_temp <-
+  bat_data_raw %>%
+  separate(Date, c("Year","Month", "Null")) %>% 
+  mutate(Date = my(paste0(Month,"-",Year))) %>%
+  group_by(Year, Month) %>%
+  summarize(mean_temp = mean(DailyTemp)) %>%
+  select(Year, Month, mean_temp)
+
+bat_data1 <- inner_join(bat_data_monthly_calls, bat_data_monthly_prey)
+bat_data2 <- inner_join(bat_data1, bat_data_monthly_aquprey)
+bat_data3 <- inner_join(bat_data2, bat_data_monthly_terprey)
+bat_data_monthly <- inner_join(bat_data3, bat_data_monthly_temp)
+
+bat_data_monthly <- #adding year-month-day column for each month
+  bat_data_monthly %>%
+  mutate(Date = make_date(year = Year, month = Month, day = 01))
+
+#breaking down dataset into years
+bat_data_2017 <-
+  bat_data_lm %>%
+  filter(year(Date) == 2017)
+
+bat_data_2018 <-
+  bat_data_lm %>%
+  filter(year(Date) == 2018)
+
+bat_data_2019 <-
+  bat_data_lm %>%
+  filter(year(Date) == 2019)
+
+bat_data_2020 <-
+  bat_data_lm %>%
+  filter(year(Date) == 2020)
 
 #exporting processed data file to processed folder in R project file
 write.csv(bat_data_lm, row.names = FALSE, 
@@ -52,7 +124,9 @@ bat_data_spatial <-
   st_as_sf(coords = c('Longitude','Latitude'),
            crs=4326) %>%
   select(Date, LunarPhase, DailyTemp, Site, TotalCalls, TotalPreyRate, geometry)
+```
 
+```{r discharge data}
 #retrieving water data from USGS
 siteNumber <- "09402500"
 COriverInfo <- readNWISsite(siteNumber)
@@ -60,6 +134,20 @@ rawDailyData_COriver_discharge <- readNWISdv(
   siteNumber, "00060", statCd = "00003",
   "2017-04-29", "2020-10-22"
 )
+
+class(rawDailyData_COriver_discharge$Date)
+
+#writing dataset to Raw Data folder
+write.csv(rawDailyData_COriver_discharge, row.names = FALSE, 
+          file = "./Data/Raw/rawDailyData_COriver_discharge.csv")
+
+#wrangling data for neccessary columns and writing it to the processed folder
+daily_discharge_processed <- rawDailyData_COriver_discharge %>%
+  select(Date, X_00060_00003) %>%
+  rename(discharge = X_00060_00003)
+
+write.csv(daily_discharge_processed, row.names = FALSE,
+          file = "./Data/Processed/daily_discharge_processed.csv")
 
 #converting COriverInfo into spatial dataset
 COriver_discharge_site <-
@@ -75,44 +163,97 @@ CO_river_utm <- st_zm(CO_river_utm)
 bat_data_sf_utm <- st_transform(bat_data_spatial, 26912)
 CO_river_discharge_utm <- st_transform(COriver_discharge_site, 26912)
 
-#plotting COriverInfo
-overview_map <- mapView(CO_river_utm, 
-        color = "royalblue3",
-        map.types = "OpenStreetMap.DE",
-        layer.name = "Colorado River") + 
-  mapView(bat_data_sf_utm, 
-          zcol = "TotalCalls", 
-          cex = 3, 
-          lwd = 0.3,
-          alpha = 0.7,
-          col.regions = brewer.pal(10, "Reds"),
-          map.types = "OpenStreetMap.DE",
-          layer.name = "Bat Survey Sites (Total Calls)") + 
-  mapView(CO_river_discharge_utm,
-          col.regions = "gold",
-          map.types = "OpenStreetMap.DE",
-          layer.name = "Discharge Site")
-  
-overview_map@map %>% setView(-112.0777, 36.2, zoom = 8)
+#combining discharge data with bat activity
+daily_bat_discharge <- inner_join(bat_data_processed, daily_discharge_processed)
 
-"https://waterdata.usgs.gov/blog/dataretrieval/"
+monthly_discharge <- #wrangling data to have monthly averages
+  daily_discharge_processed %>% 
+  separate(Date, c("Year","Month", "Null")) %>% 
+  mutate(Date = my(paste0(Month,"-",Year))) %>%
+  group_by(Year, Month) %>%
+  summarize(mean_discharge = mean(discharge)) %>%
+  select(Year, Month, mean_discharge)
+
+monthly_discharge <- #adding year-month-day column for each month
+  monthly_discharge %>%
+  mutate(Date = make_date(year = Year, month = Month, day = 01)) %>%
+  select(Date, Year, Month, mean_discharge)
+
+monthly_bat_discharge <- inner_join(bat_data_monthly, monthly_discharge)
 ```
 
 ```{r}
 #exploring data
-dim(bat_data_lm)
-summary(bat_data_lm)
-ggplot(bat_data_lm, aes(x=DailyTemp, y=TotalCalls)) +
-  geom_point()
+dim(bat_data_monthly)
+summary(bat_data_monthly)
 
-dim(bat_data_spatial)
-summary(bat_data_spatial)
-ggplot() +
-  geom_sf(data = bat_data_spatial)
+bat_plot <-
+ggplot(bat_data_monthly, aes(x = Date, y = mean_calls)) +
+  geom_point() +
+  ylab("Mean # of Bat Calls") +
+  xlab("Date") +
+  geom_smooth(method = lm, col = "royalblue", se = F) +
+  ggtitle("Mean Monthly Bat Calls") +
+  scale_x_date(breaks = "2 months") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+print(bat_plot)
+
+bat_temp_plot <-
+ggplot(bat_data_monthly, aes(x = mean_temp, y = mean_calls)) +
+  geom_point() +
+  ylab("Mean # Bat Calls") +
+  xlab("Mean Temperature (C)") +
+  geom_smooth(method = lm, col = "royalblue", se = F) +
+  ggtitle("Mean Monthly Bat Calls") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+print(bat_temp_plot)
+
+bat_lunar_plot <-
+ggplot(bat_data_processed, aes(x = LunarPhase, y = TotalCalls)) +
+  geom_boxplot() +
+  ylab("# Bat Calls") +
+  xlab("Lunar Phase")
+print(bat_lunar_plot)
+
+#plotting with discharge and bat calls across months of surveys
+bat_discharge_plot1 <-
+ggplot(monthly_bat_discharge, aes(x = Date, y = mean_calls)) +
+  geom_point(color = "maroon") +
+  ylab("Mean # of Bat Calls") +
+  xlab("Date") +
+  scale_x_date(breaks = "2 months") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+print(bat_discharge_plot1)
+
+bat_discharge_plot2 <-
+ggplot(monthly_bat_discharge, aes(x = Date, y = mean_discharge)) +
+  geom_line(color = "royalblue3") +
+  ylab("Mean Discharge (unit)") +
+  xlab("Date") +
+  scale_x_date(breaks = "2 months") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+print(bat_discharge_plot2)
+
+bat_discharge_plot1 + bat_discharge_plot2
+
+coeff <- 100
+bat_discharge_plot3 <-
+ggplot(monthly_bat_discharge, aes(x = Date)) +
+  geom_point(aes(y = mean_calls, color = "maroon")) +
+  geom_line(aes(y = mean_discharge/coeff, color = "royalblue3")) +
+  xlab("Date") +
+  scale_x_date(breaks = "2 months") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_y_continuous(name = "Mean # of Bat Calls", sec.axis = sec_axis(trans=~.*100, name=("Mean Discharge (cubic ft/sec)"))) +
+  scale_color_discrete(name = "Legend", labels = c("Bat Calls", "Discharge"))
+print(bat_discharge_plot3)
+
+#scale_x_date(breaks = "1 month", labels = date_format("%B"))
 ```
 
+```{r data sources}
+"Bat data: https://www.usgs.gov/data/bat-activity-and-insect-abundance-data-along-colorado-river-grand-canyon-az"
 
-```{r}
-#source: https://www.usgs.gov/data/bat-activity-and-insect-abundance-data-along-colorado-river-grand-canyon-az
+"USGS discharge: https://waterdata.usgs.gov/blog/dataretrieval/"
 ```
 
