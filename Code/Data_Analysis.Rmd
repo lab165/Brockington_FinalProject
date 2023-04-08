@@ -9,7 +9,7 @@ editor_options:
 
 ```{r time series}
 #time series analysis
-discharge_plot <- #plotting ozone concetration over time
+discharge_plot <- #plotting ozone concentration over time
 ggplot(daily_discharge_processed, aes(x = Date, y = discharge)) +
   geom_line() +
   ylab("Discharge (units)") +
@@ -98,6 +98,17 @@ ggplot(bat_data_processed, aes(x = LunarPhase, y = TotalCalls)) +
   ylab("# Bat Calls") +
   xlab("Lunar Phase")
 print(bat_lunar_plot)
+
+lm_bat_prey <- lm(data= daily_bat_discharge, TotalCalls ~ TotalPreyRate)
+summary(lm_bat_prey)
+
+#running AIC to determine which set of variables if best to predict # bat calls
+aic_all <- lm(data = daily_bat_discharge, TotalCalls ~ DailyTemp + Site + LunarPhase + TotalPreyRate + discharge)
+step(aic_all)
+
+#running multiple regression on variables from AIC
+lm_all <- lm(data = daily_bat_discharge, TotalCalls ~ DailyTemp + Site + LunarPhase + discharge)
+summary(lm_all)
 
 #scale_x_date(breaks = "1 month", labels = date_format("%B"))
 ```
