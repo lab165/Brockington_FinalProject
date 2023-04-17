@@ -17,6 +17,10 @@ library(mapview); mapviewOptions(fgb = FALSE); library(dataRetrieval); library(g
 here()
 
 #setting my theme
+mytheme <- theme_linedraw(base_size = 11) +
+  theme(axis.text = element_text(color = "black"), 
+        legend.position = "bottom")
+theme_set(mytheme)
 
 #setting mapview options
 mapviewOptions(basemaps = c("Esri.WorldShadedRelief", "OpenStreetMap.DE"))
@@ -29,6 +33,9 @@ bat_data_raw <- read.csv(here("Data/Raw/Bat_Activity_Insect_Abundance_Data.csv")
 
 #setting date column as date class
 bat_data_raw$Date <- mdy(bat_data_raw$Date)
+#setting site column as a factor
+
+bat_data_raw$Site<-as.factor(bat_data_raw$Site)
 ```
 
 **Research questions**
@@ -36,7 +43,7 @@ bat_data_raw$Date <- mdy(bat_data_raw$Date)
 2. How did discharge in the Colorado River change during the course of the bat study (2017-2021)?
 
 **Hypotheses**
-1. Alt hypothesis: Temperature and prey availability significantly influenced bat activity along the Colorado River in the Grand Canyon.
+1. Alt hypothesis: Increased temperature and prey availability significantly increased bat activity along the Colorado River in the Grand Canyon.
 1. Null hypothesis: Temperature, prey availability, moon phase, location, and discharge had no effect on bat activity along the Colorado River in the Grand Canyon.
 
 2. Alt hypothesis: Discharge in the Colorado River significantly decreased from 2017 to 2021.
@@ -46,7 +53,11 @@ bat_data_raw$Date <- mdy(bat_data_raw$Date)
 #wrangling data to include only variables of interest for linear model
 bat_data_processed <-
   bat_data_raw %>%
-  select(Date, LunarPhase, DailyTemp, Site, TotalCalls, AquaticPreyRate, TerrestrialPreyRate, TotalPreyRate)
+  select(Date, LunarPhase, DailyTemp, Site, TotalCalls, TotalPreyRate)
+
+#bat_data_species <-
+  #bat_data_raw %>%
+  #select(Date, ANPA, COTO, EPFU, EUMA, EUPE, LABL, LABO, LACI, LAIN, LANO, LAXA, MYCA, MYCI, MYEV, MYGR, MYLU, MYTH, MYVO, MYSP, MYYU, NOID, NYFE, NYMA, PAHE, PESU, TABR)
 
 bat_data_monthly_calls <-
   bat_data_raw %>%
@@ -132,8 +143,7 @@ siteNumber <- "09402500"
 COriverInfo <- readNWISsite(siteNumber)
 rawDailyData_COriver_discharge <- readNWISdv(
   siteNumber, "00060", statCd = "00003",
-  "2017-04-29", "2020-10-22"
-)
+  "2017-04-29", "2020-10-22")
 
 class(rawDailyData_COriver_discharge$Date)
 
@@ -184,8 +194,9 @@ monthly_bat_discharge <- inner_join(bat_data_monthly, monthly_discharge)
 
 ```{r}
 #exploring data
-dim(bat_data_monthly)
-summary(bat_data_monthly)
+dim(daily_bat_discharge)
+summary(daily_bat_discharge)
+str(daily_bat_discharge)
 
 bat_plot <-
 ggplot(bat_data_monthly, aes(x = Date, y = mean_calls)) +
@@ -249,6 +260,10 @@ ggplot(monthly_bat_discharge, aes(x = Date)) +
 print(bat_discharge_plot3)
 
 #scale_x_date(breaks = "1 month", labels = date_format("%B"))
+
+ggplot(daily_bat_discharge, aes(x=discharge, y=TotalCalls)) +
+  geom_point() +
+  geom_smooth(method=lm)
 ```
 
 ```{r data sources}

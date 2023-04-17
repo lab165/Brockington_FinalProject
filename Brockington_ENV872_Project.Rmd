@@ -1,0 +1,271 @@
+---
+title: 'Exploration of Bat Activity Along the Colorado River in Grand Canyon, AZ'
+subtitle: "https://github.com/lab165/Brockington_FinalProject"
+author: Laura Brockington
+output:
+  html_document:
+    toc: TRUE
+    theme: sandstone
+---
+
+\newpage
+\tableofcontents
+\listoftables
+\listoffigures 
+\newpage
+
+```{r setup, include=FALSE}
+# Set your working directory
+getwd()
+
+# Load your packages
+library(tidyverse); library(lubridate); library(here); library(zoo)
+library(trend); library(sf); library(leaflet); 
+library(mapview); mapviewOptions(fgb = FALSE); library(dataRetrieval); library(ggspatial); library(rgdal); library(RColorBrewer); library(sp); library(knitr)
+
+# Set your ggplot theme
+mytheme <- theme_linedraw(base_size = 11) +
+  theme(axis.text = element_text(color = "black"), 
+        legend.position = "bottom")
+theme_set(mytheme)
+
+mapviewOptions(basemaps = c("Esri.WorldShadedRelief", "OpenStreetMap.DE"))
+
+# Load your datasets
+# Loading bat activity and insect abundance data
+bat_data_raw <- read.csv(here("Data/Raw/Bat_Activity_Insect_Abundance_Data.csv"), 
+                     stringsAsFactors = TRUE)
+# Loading discharge data
+siteNumber <- "09402500"
+COriverInfo <- readNWISsite(siteNumber)
+rawDailyData_COriver_discharge <- readNWISdv(
+  siteNumber, "00060", statCd = "00003",
+  "2017-04-29", "2020-10-22")
+# Loading in CO River Shapefile for map
+CO_river_utm <- st_read('./Data/Raw/az_hydro_routesNAD83/az_hydro_routesNAD83.shp') %>% filter(NAME == "Colorado River")
+```
+
+# Rationale and Research Questions
+
+Bats provide irreplaceable ecosystem services. They play an essential role in pest control, pollination, and seed dispersal. However, population numbers have been decreasing globally due mostly to habitat loss and a highly contagious fungal borne illness known as white-nose syndrome. It is estimated that the continued decline of bat populations across North America will result in agricultural losses of more than \$3.7 billion/year (Boyles et al., 2011).
+
+The data used in this study were originally compiled to better understand bat foraging behavior along the Colorado River in Grand Canyon, Arizona. This project aims to explore the relationship between bat activity, prey availability, temperature, location, moon phase, and river discharge with the following research questions:
+
+1.  What factors influence bat activity (temperature, prey availability, vegetation cover, moon phase, location, discharge) along the Colorado River in the Grand Canyon?
+2.  How did discharge in the Colorado River change during the course of the bat study (2017-2021)?
+
+I hypothesize that increased temperature and prey availability will significantly increase bat activity along the Colorado River in the Grand Canyon. I also hypothesize that discharge in the Colorado River significantly decreased from 2017 to 2021. The results of this study will help us better understand bats natural history traits in the southwestern US, including what factors most influence bat activity.
+
+\newpage
+
+# Dataset Information
+
+The bat activity and insect abundance data in this study were collected by citizen scientists led by the US Geological Survey (USGS) in Grand Canyon, AZ. They recorded bat activity using handheld acoustic recorders and sampled insect abundance using light traps. Recording was done for one hour at dusk at 410 sampling locations (along a 470 km segment of the river) for 611 nights from April to October in 2017 to 2020. In total, 1,438 paired samples of bat activity and insect abundance were collected. Other environmental variables were recorded, including temperature, moon phase, and type of insect (aquatic or terrestrial) (Metcalfe et al., 2023). Details of the dataset's structure can be seen in Table 1. More information on this dataset can be found at: <https://www.usgs.gov/data/bat-activity-and-insect-abundance-data-along-colorado-river-grand-canyon-az>
+
+The discharge data for the Colorado River was collected from the USGS National Water Information System. I used the daily mean discharge for each day that bats were surveyed in the primary dataset of bat activity (USGS, 2023). The shapefile of the Colorado River, which was only used for mapping the study area, was collected from the University of Arizona (Westfall, 2008).
+
+| Attribute         | Description                                                      |
+|:------------------|:-----------------------------------------------------------------|
+| Date              | Date of survey                                                   |
+| Lunar Phase       | Moon phase at time of survey                                     |
+| Daily Temperature | Average temperature (°C) on date of survey                       |
+| Site              | Survey site number                                               |
+| Tall Vegetation   | Tall vegetation cover as a proportion of the total riparian area |
+| Total Calls       | Total number of recorded bat calls                               |
+| Total Prey Rate   | Total number of insects collected over the duration of sampling  |
+
+: Table 1: Summary of bat activity dataset structure
+
+\newpage
+
+# Exploratory Analysis
+
+To explore the data involved in this study, I first created a map of the study area (Figure 1). This is helpful in understanding the spatial extent of the data. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="left", fig.width=8, fig.cap="Figure 1: Map of study area, Grand Canyon, AZ"}
+bat_data_spatial <-
+  bat_data_raw %>%
+  st_as_sf(coords = c('Longitude','Latitude'),
+           crs=4326) %>%
+  select(Date, LunarPhase, DailyTemp, Site, TotalCalls, TotalPreyRate, geometry)
+COriver_discharge_site <-
+  COriverInfo %>%
+  st_as_sf(coords = c('dec_long_va','dec_lat_va'),
+           crs=4269)
+CO_river_utm <- st_zm(CO_river_utm)
+bat_data_sf_utm <- st_transform(bat_data_spatial, 26912)
+CO_river_discharge_utm <- st_transform(COriver_discharge_site, 26912)
+overview_map <- mapView(CO_river_utm, 
+        color = "royalblue3",
+        map.types = "OpenStreetMap.DE",
+        layer.name = "Colorado River") +
+  mapView(bat_data_sf_utm, 
+          zcol = "TotalCalls", 
+          cex = 5, 
+          lwd = 0.3,
+          alpha = 0.8,
+          col.regions = brewer.pal(10, "Purples"),
+          map.types = "OpenStreetMap.DE",
+          layer.name = "Bat Survey Sites (Total Calls)") +
+  mapView(CO_river_discharge_utm,
+          col.regions = "gold",
+          map.types = "OpenStreetMap.DE",
+          layer.name = "Discharge Site")
+overview_map@map %>% setView(-112.0777, 36.2, zoom = 7.5)
+```
+
+The dimensions, column names, class, and head of each column for my combined dataset can be seen below.
+
+```{r, include=FALSE}
+bat_data_raw$Date <- mdy(bat_data_raw$Date)
+bat_data_raw$Site<-as.factor(bat_data_raw$Site)
+bat_data_processed <-
+  bat_data_raw %>%
+  select(Date, LunarPhase, DailyTemp, Site, TallVegByMSU, TotalCalls, TotalPreyRate)
+daily_discharge_processed <- rawDailyData_COriver_discharge %>%
+  select(Date, X_00060_00003) %>%
+  rename(discharge = X_00060_00003)
+daily_bat_discharge <- inner_join(bat_data_processed, daily_discharge_processed)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+str(daily_bat_discharge)
+```
+
+I created a new datset with the monthly means of each of my variables (temperature, total bat calls, total prey rate, and discharge) to more easily view trends across the survey timeline. I plotted each variable of interest with the total number of bat calls to visualize any relationships in my data that can be used to orient future analyses. 
+
+Figure 2 shows how the number of bat calls and river discharge changed over the course of the study. It appears that these two variables might have an inverse relationship, when discharge increases, the number of bat calls recorded increases.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="left", fig.cap="Figure 2: Mean monthly calls and mean monthly discharge across study timeline"}
+bat_data_monthly_calls <-
+  bat_data_raw %>%
+  separate(Date, c("Year","Month", "Null")) %>% 
+  mutate(Date = my(paste0(Month,"-",Year))) %>%
+  group_by(Year, Month) %>%
+  summarize(mean_calls = mean(TotalCalls)) %>%
+  select(Year, Month, mean_calls)
+bat_data_monthly_prey <-
+  bat_data_raw %>%
+  separate(Date, c("Year","Month", "Null")) %>% 
+  mutate(Date = my(paste0(Month,"-",Year))) %>%
+  group_by(Year, Month) %>%
+  summarize(mean_prey = mean(TotalPreyRate)) %>%
+  select(Year, Month, mean_prey)
+bat_data_monthly_temp <-
+  bat_data_raw %>%
+  separate(Date, c("Year","Month", "Null")) %>% 
+  mutate(Date = my(paste0(Month,"-",Year))) %>%
+  group_by(Year, Month) %>%
+  summarize(mean_temp = mean(DailyTemp)) %>%
+  select(Year, Month, mean_temp)
+bat_data_monthly_veg <-
+  bat_data_raw %>%
+  separate(Date, c("Year","Month", "Null")) %>% 
+  mutate(Date = my(paste0(Month,"-",Year))) %>%
+  group_by(Year, Month) %>%
+  summarize(mean_veg = mean(TallVegByMSU)) %>%
+  select(Year, Month, mean_veg)
+bat_data1 <- inner_join(bat_data_monthly_calls, bat_data_monthly_prey)
+bat_data2 <- inner_join(bat_data1, bat_data_monthly_temp)
+bat_data_monthly <- inner_join(bat_data2, bat_data_monthly_veg)
+bat_data_monthly <- #adding year-month-day column for each month
+  bat_data_monthly %>%
+  mutate(Date = make_date(year = Year, month = Month, day = 01))
+monthly_discharge <- #wrangling data to have monthly averages
+  daily_discharge_processed %>% 
+  separate(Date, c("Year","Month", "Null")) %>% 
+  mutate(Date = my(paste0(Month,"-",Year))) %>%
+  group_by(Year, Month) %>%
+  summarize(mean_discharge = mean(discharge)) %>%
+  select(Year, Month, mean_discharge)
+monthly_discharge <- #adding year-month-day column for each month
+  monthly_discharge %>%
+  mutate(Date = make_date(year = Year, month = Month, day = 01)) %>%
+  select(Date, Year, Month, mean_discharge)
+monthly_bat_discharge <- inner_join(bat_data_monthly, monthly_discharge)
+coeff <- 100
+bat_discharge_plot3 <-
+ggplot(monthly_bat_discharge, aes(x = Date)) +
+  geom_point(aes(y = mean_calls, color = "maroon")) +
+  geom_line(aes(y = mean_discharge/coeff, color = "royalblue3")) +
+  xlab("Date") +
+  scale_x_date(breaks = "2 months") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_y_continuous(name = "Mean # of Bat Calls", sec.axis = sec_axis(trans=~.*100, name=("Mean Discharge (cubic ft/sec)"))) +
+  scale_color_discrete(name = "Legend", labels = c("Bat Calls", "Discharge"))
+print(bat_discharge_plot3)
+```
+
+Figure 3 shows that the mean number of recorded bat calls and the mean rate of prey might have a positive correlation.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="left", fig.cap="Figure 3: Mean monthly bat calls vs mean monthly prey rate"}
+bat_prey_plot <-
+ggplot(bat_data_monthly, aes(x = mean_prey, y = mean_calls)) +
+  geom_point() +
+  ylab("Mean # Bat Calls") +
+  xlab("Mean Prey Rate") +
+  geom_smooth(method = lm, col = "royalblue", se = F) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+print(bat_prey_plot)
+```
+
+Figure 4 shows that the mean number of recorded bat calls and the mean temperature might have a positive correlation.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="left", fig.cap="Figure 4: Mean monthly bat calls vs mean monthly temperature"}
+bat_temp_plot <-
+ggplot(bat_data_monthly, aes(x = mean_temp, y = mean_calls)) +
+  geom_point() +
+  ylab("Mean # Bat Calls") +
+  xlab("Mean Temperature (°C)") +
+  geom_smooth(method = lm, col = "royalblue", se = F) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+print(bat_temp_plot)
+```
+
+Figure 5 shows that the mean number of recorded bat calls and the mean vegetation cover might have a positive correlation.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="left", fig.cap="Figure 5: Mean monthly bat calls vs mean vegetation cover"}
+bat_veg_plot <-
+ggplot(bat_data_monthly, aes(x = mean_veg, y = mean_calls)) +
+  geom_point() +
+  ylab("Mean # Bat Calls") +
+  xlab("Mean Vegetation Cover") +
+  geom_smooth(method = lm, col = "royalblue", se = F) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+print(bat_veg_plot)
+```
+
+Figure 6 shows that the number of recorded bat calls and the lunar phase might have a ???.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="left", fig.cap="Figure 6: Number of bat calls vs lunar phase"}
+bat_lunar_plot <-
+ggplot(bat_data_processed, aes(x = LunarPhase, y = TotalCalls)) +
+  geom_boxplot() +
+  ylab("# Bat Calls") +
+  xlab("Lunar Phase")
+print(bat_lunar_plot)
+```
+
+\newpage
+
+# Analysis
+
+## Question 1: What factors influence bat activity (temperature, prey availability, moon phase, location, discharge) along the Colorado River in the Grand Canyon?
+
+A multiple linear regression was used to determine...
+
+## Question 2: How did discharge in the Colorado River change during the course of the bat study (2017-2021)?
+
+\newpage
+
+# Summary and Conclusions
+
+
+
+\newpage
+
+# References
+
+\<add references here if relevant, otherwise delete this section\>
+
+<https://waterdata.usgs.gov/nwis/dv>? <https://repository.arizona.edu/handle/10150/188710>

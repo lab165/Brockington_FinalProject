@@ -9,7 +9,7 @@ editor_options:
 
 ```{r time series}
 #time series analysis
-discharge_plot <- #plotting ozone concentration over time
+discharge_plot <- #plotting discharge over time
 ggplot(daily_discharge_processed, aes(x = Date, y = discharge)) +
   geom_line() +
   ylab("Discharge (units)") +
@@ -51,15 +51,15 @@ summary(daily_discharge_trend)
 overview_map <- mapView(CO_river_utm, 
         color = "royalblue3",
         map.types = "OpenStreetMap.DE",
-        layer.name = "Colorado River") + 
+        layer.name = "Colorado River") +
   mapView(bat_data_sf_utm, 
           zcol = "TotalCalls", 
-          cex = 3, 
+          cex = 5, 
           lwd = 0.3,
-          alpha = 0.7,
-          col.regions = brewer.pal(10, "Reds"),
+          alpha = 0.8,
+          col.regions = brewer.pal(10, "Purples"),
           map.types = "OpenStreetMap.DE",
-          layer.name = "Bat Survey Sites (Total Calls)") + 
+          layer.name = "Bat Survey Sites (Total Calls)") +
   mapView(CO_river_discharge_utm,
           col.regions = "gold",
           map.types = "OpenStreetMap.DE",
@@ -71,14 +71,17 @@ overview_map@map %>% setView(-112.0777, 36.2, zoom = 8)
 
 ```{r linear model}
 #linear model
+#correlation plot
+???
+  
+#plots
 bat_plot <-
-ggplot(bat_data_monthly, aes(x = Date, y = mean_calls)) +
+ggplot(daily_bat_discharge, aes(x = Date, y = TotalCalls)) +
   geom_point() +
-  ylab("Mean # of Bat Calls") +
+  ylab("# of Bat Calls") +
   xlab("Date") +
   geom_smooth(method = lm, col = "royalblue", se = F) +
-  ggtitle("Mean Monthly Bat Calls") +
-  scale_x_date(breaks = "2 months") +
+  ggtitle("Daily Number of Bat Calls Across Survey Timeline") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 print(bat_plot)
 
@@ -99,16 +102,31 @@ ggplot(bat_data_processed, aes(x = LunarPhase, y = TotalCalls)) +
   xlab("Lunar Phase")
 print(bat_lunar_plot)
 
+qqnorm(daily_bat_discharge$TotalCalls); qqline(daily_bat_discharge$TotalCalls)
+
 lm_bat_prey <- lm(data= daily_bat_discharge, TotalCalls ~ TotalPreyRate)
 summary(lm_bat_prey)
 
+lm_bat_veg <- lm(data= daily_bat_discharge, TotalCalls ~ TallVegByMSU)
+summary(lm_bat_veg)
+
+aov_bat_site <- aov(data = daily_bat_discharge, TotalCalls ~ Site)
+summary(aov_bat_site)
+
+bartlett.test(daily_bat_discharge$TotalCalls ~ daily_bat_discharge$LunarPhase)
+aov_bat_lunar <- aov(data = daily_bat_discharge, TotalCalls ~ LunarPhase)
+summary(aov_bat_lunar)
+
 #running AIC to determine which set of variables if best to predict # bat calls
-aic_all <- lm(data = daily_bat_discharge, TotalCalls ~ DailyTemp + Site + LunarPhase + TotalPreyRate + discharge)
+aic_all <- lm(data = daily_bat_discharge, TotalCalls ~ DailyTemp + TallVegByMSU + LunarPhase + TotalPreyRate + discharge)
 step(aic_all)
 
 #running multiple regression on variables from AIC
-lm_all <- lm(data = daily_bat_discharge, TotalCalls ~ DailyTemp + Site + LunarPhase + discharge)
+lm_all <- lm(data = daily_bat_discharge, TotalCalls ~ DailyTemp + TallVegByMSU + LunarPhase + TotalPreyRate + discharge)
 summary(lm_all)
+
+#ancova <- aov(data = daily_bat_discharge, TotalCalls ~ DailyTemp + LunarPhase + TotalPreyRate + discharge)
+#Anova(ancova, type = "III")
 
 #scale_x_date(breaks = "1 month", labels = date_format("%B"))
 ```
