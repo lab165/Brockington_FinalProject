@@ -100,8 +100,11 @@ overview_map@map %>% setView(-112.0777, 36.2, zoom = 8)
 
 ```{r linear model}
 #linear model
-#correlation plot
-???
+
+#checking assumptions
+par(mfrow = c(2,2), mar=c(4,4,4,4))
+plot(irradiance.regression)
+par(mfrow = c(1,1))
   
 #plots
 ggplot(daily_bat_discharge, aes(x = Date, y = TotalCalls)) +
@@ -152,6 +155,10 @@ step(aic_all)
 #running multiple regression on variables from AIC
 lm <- lm(data = daily_bat_discharge, TotalCalls ~ DailyTemp + TallVeg + discharge)
 summary(lm)
+
+par(mfrow = c(2,2), mar=c(4,4,4,4))
+plot(lm)
+par(mfrow = c(1,1))
 
 #ancova <- aov(data = daily_bat_discharge, TotalCalls ~ DailyTemp + LunarPhase + TotalPreyRate + discharge)
 #Anova(ancova, type = "III")

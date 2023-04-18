@@ -3,18 +3,14 @@ title: "Exploration of Bat Activity Along the Colorado River in Grand Canyon, AZ
 author: "Laura Brockington"
 subtitle: https://github.com/lab165/Brockington_FinalProject
 output:
-  html_document:
+  bookdown::html_document2:
+    fig_caption: true
     toc: yes
+    toc_depth: 1
     theme: sandstone
 ---
 
-\newpage
 \tableofcontents
-
-\listoftables
-
-\listoffigures 
-\newpage
 
 ```{r setup, include=FALSE}
 # Set your working directory
@@ -47,6 +43,28 @@ rawDailyData_COriver_discharge <- readNWISdv(
 CO_river_utm <- st_read('./Data/Raw/az_hydro_routesNAD83/az_hydro_routesNAD83.shp') %>% filter(NAME == "Colorado River")
 ```
 
+**List of Tables**  
+*Dataset Information*  
+-Table 2.1: Summary of bat activity dataset variables
+
+*Exploratory Analysis*    
+-Table 3.1: Summary statistics for variables of interest
+
+**List of Figures**    
+*Exploratory Analysis*    
+-Figure \@ref(fig:map): Map of study area, Grand Canyon, AZ      
+-Figure \@ref(fig:pairs): Pairs plot for all variables of interest      
+-Figure \@ref(fig:discharge): Colorado River discharge over the course of the bat study (2017-2020)     
+-Figure \@ref(fig:monthly): Mean monthly calls and mean monthly discharge across study timeline
+
+*Analysis*      
+-Figure \@ref(fig:residual): Residual plots to check the fit of the model     
+-Figure \@ref(fig:temp): Temperature and number of bat calls        
+-Figure \@ref(fig:veg): Vegetation cover and number of bat calls       
+-Figure \@ref(fig:dis): Discharge and number of bat calls       
+-Figure \@ref(fig:decomp): Decomposed components of the Colorado River discharge time series        
+-Figure \@ref(fig:ns): Non-seasonal discharge for the Colorado River during the bat study (2017-2020)
+
 # Rationale and Research Questions
 
 Bats provide irreplaceable ecosystem services. They play an essential role in pest control, pollination, and seed dispersal. However, population numbers have been decreasing globally due mostly to habitat loss and a highly contagious fungal borne illness known as white-nose syndrome. It is estimated that the continued decline of bat populations across North America will result in agricultural losses of more than \$3.7 billion/year (Boyles et al., 2011).
@@ -58,33 +76,29 @@ The data used in this study were originally compiled to better understand bat fo
 
 I hypothesize that increased temperature and prey availability will significantly increase bat activity along the Colorado River in the Grand Canyon. I also hypothesize that discharge in the Colorado River significantly decreased from 2017 to 2021. The results of this study will help us better understand bats natural history traits in the southwestern US, including what factors most influence bat activity.
 
-\newpage
-
 # Dataset Information
 
-The bat activity and insect abundance data in this study were collected by citizen scientists led by the US Geological Survey (USGS) in Grand Canyon, AZ. They recorded bat activity using handheld acoustic recorders and sampled insect abundance using light traps. Recording was done for one hour at dusk at 410 sampling locations (along a 470 km segment of the river) for 611 nights from April to October in 2017 to 2020. In total, 1,438 paired samples of bat activity and insect abundance were collected. Other environmental variables were recorded, including temperature, moon phase, and type of insect (aquatic or terrestrial) (Metcalfe et al., 2023). Details of the dataset's structure can be seen in Table 1. More information on this dataset can be found at: <https://www.usgs.gov/data/bat-activity-and-insect-abundance-data-along-colorado-river-grand-canyon-az>
+The bat activity and insect abundance data in this study were collected by citizen scientists led by the US Geological Survey (USGS) in Grand Canyon, AZ. They recorded bat activity using handheld acoustic recorders and sampled insect abundance using light traps. Recording was done for one hour at dusk at 410 sampling locations (along a 470 km segment of the river) for 611 nights from April to October in 2017 to 2020. In total, 1,438 paired samples of bat activity and insect abundance were collected. Other environmental variables were recorded, including temperature, moon phase, and type of insect (aquatic or terrestrial) (Metcalfe et al., 2023). Details of the dataset's structure can be seen in Table 2.1. More information on this dataset can be found at: <https://www.usgs.gov/data/bat-activity-and-insect-abundance-data-along-colorado-river-grand-canyon-az>
 
-| Variable         | Description                                                      |
-|:-----------------|:-----------------------------------------------------------------|
-| Date             | Date of survey                                                   |
-| Daily Temp       | Average temperature (°C) on date of survey                       |
-| Tall Veg         | Tall vegetation cover as a proportion of the total riparian area |
-| Total Calls      | Total number of recorded bat calls                               |
-| Total Prey Rate  | Total number of insects collected over the duration of sampling  |
+| Variable        | Description                                                      |
+|:-----------------|:-----------------------------------------------------|
+| Date            | Date of survey                                                   |
+| Daily Temp      | Average temperature (°C) on date of survey                       |
+| Tall Veg        | Tall vegetation cover as a proportion of the total riparian area |
+| Total Calls     | Total number of recorded bat calls                               |
+| Total Prey Rate | Total number of insects collected over the duration of sampling  |
 
-: Table 1: Summary of bat activity dataset structure
+: Table 2.1: Summary of bat activity dataset variables
 
 The discharge data for the Colorado River was collected from the USGS National Water Information System. I used the daily mean discharge for each day that bats were surveyed in the primary dataset of bat activity (USGS, 2023). The shapefile of the Colorado River, which was only used for mapping the study area, was collected from the University of Arizona (Westfall, 2008).
 
 The datasets were wrangled to only include variables of interest for this study. I first checked the class of each variable and adjusted the date and site columns to be dates and factors, respectively. I then created a new dataset, only including the variables of interest. I combined this dataset with the discharge data through an inner join so only rows with data from both were included. This left us with 1,428 rows of 8 variables. I also calculated the monthly average for each variable and subsetted this to a new dataframe.
 
-\newpage
-
 # Exploratory Analysis
 
-To explore the data involved in this study, I first created a map of the study area (Figure 1). This is helpful in understanding the spatial extent of the data. 
+To explore the data involved in this study, I first created a map of the study area (Figure 3.1). This is helpful in understanding the spatial extent of the data.
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="left", fig.width=8, fig.cap="Figure 1: Map of study area, Grand Canyon, AZ"}
+```{r map, echo=FALSE, message=FALSE, warning=FALSE, fig.align="left", fig.width=9, fig.cap="Map of study area, Grand Canyon, AZ"}
 bat_data_spatial <-
   bat_data_raw %>%
   st_as_sf(coords = c('Longitude','Latitude'),
@@ -135,15 +149,15 @@ daily_bat_discharge <- inner_join(bat_data_processed, daily_discharge_processed)
 str(daily_bat_discharge)
 ```
 
-I created a pairs plot of all of the continuous variables of interest in the study to visualize any relationships in my data that can be used to orient future analyses (Figure 2). It appears that no variables have particularly strong correlations, with all correlation coefficients under 0.3.
+I created a pairs plot of all of the continuous variables of interest in the study to visualize any relationships in my data that can be used to orient future analyses (Figure 3.2). It appears that no variables have particularly strong correlations, with all correlation coefficients under 0.3.
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="left", fig.cap="Figure 2: Pairs plots for all continuous variables of interest"}
+```{r pairs, echo=FALSE, message=FALSE, warning=FALSE, fig.align="left", fig.cap="Pairs plots for all variables of interest", fig.width=9}
 ggpairs(data=daily_bat_discharge)
 ```
 
-I plotted the discharge of the Colorado River across the timespan of the bat study, from 2017 through 2020. The high peak in November of 2018 was a controlled flood of the river.
+I plotted the discharge of the Colorado River across the timespan of the bat study, from 2017 through 2020 (Figure 3.3). The high peak in November of 2018 was a controlled flood of the river.
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="left", fig.cap="Figure 3: Colorado river discharge over the course of the bat study (2017-2020)"}
+```{r discharge, echo=FALSE, message=FALSE, warning=FALSE, fig.align="left", fig.cap="Colorado river discharge over the course of the bat study (2017-2020)", fig.width=9}
 discharge_plot <- #plotting discharge over time
 ggplot(daily_discharge_processed, aes(x = Date, y = discharge)) +
   geom_point(size=1, alpha=0.7, color="steelblue4") +
@@ -155,9 +169,9 @@ ggplot(daily_discharge_processed, aes(x = Date, y = discharge)) +
 print(discharge_plot)
 ```
 
-I created a new dataset with the monthly means of each of my variables (temperature, total bat calls, total prey rate, vegetation cover, and discharge) to more easily view trends across the survey timeline. As an example, figure 4 shows that the number of bat calls and river discharge changed over the course of the study. It appears that these two variables might have an inverse relationship, when discharge increases, the number of bat calls recorded decreases.
+I created a new dataset with the monthly means of each of my variables (temperature, total bat calls, total prey rate, vegetation cover, and discharge) to more easily view trends across the survey timeline. As an example, figure 3.4 shows that the number of bat calls and river discharge changed over the course of the study. It appears that these two variables might have an inverse relationship, when discharge increases, the number of bat calls recorded decreases.
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="left", fig.cap="Figure 4: Mean monthly calls and mean monthly discharge across study timeline"}
+```{r monthly, echo=FALSE, message=FALSE, warning=FALSE, fig.align="left", fig.cap="Mean monthly calls and mean monthly discharge across study timeline", fig.width=9}
 bat_data_monthly_calls <-
   bat_data_raw %>%
   separate(Date, c("Year","Month", "Null")) %>% 
@@ -217,22 +231,20 @@ ggplot(monthly_bat_discharge, aes(x = Date)) +
 print(bat_discharge_plot3)
 ```
 
-Summary statistics for each of the variables of interest (Table 2) helps us to better understand the data.
+Summary statistics for each of the variables of interest (Table 3.1) helps us to better understand the data.
 
-| Variable         | Mean   | Median | SD      | Min   | Max      |
-|:-----------------|:-------|:-------|:--------|:------|:---------|
-| Daily Temp       | 27.29  | 27.50  | 5.26    | 12.50 | 41.67    |
-| Tall Veg         | 0.69   | 0.44   | 0.66    | 0.00  | 3.55     |
-| Total Calls      | 146.80 | 151.00 | 68.80   | 1.00  | 469.00   |
-| Total Prey Rate  | 657.90 | 303.20 | 1147.07 | 0.00  | 18873.00 |
+| Variable        | Mean   | Median | SD      | Min   | Max      |
+|:----------------|:-------|:-------|:--------|:------|:---------|
+| Daily Temp      | 27.29  | 27.50  | 5.26    | 12.50 | 41.67    |
+| Tall Veg        | 0.69   | 0.44   | 0.66    | 0.00  | 3.55     |
+| Total Calls     | 146.80 | 151.00 | 68.80   | 1.00  | 469.00   |
+| Total Prey Rate | 657.90 | 303.20 | 1147.07 | 0.00  | 18873.00 |
 
-: Table 2: Summary statistics for variables of interest
-
-\newpage
+: Table 3.1: Summary statistics for variables of interest
 
 # Analysis
 
-### Question 1: What factors influence bat activity (temperature, prey availability, vegetation cover, discharge) along the Colorado River in the Grand Canyon?
+## Question 1: What factors influence bat activity (temperature, prey availability, vegetation cover, discharge) along the Colorado River in the Grand Canyon?
 
 H₀: There is no significant relationship between number of bat calls and temperature, prey availability, vegetation cover, or discharge.
 
@@ -245,19 +257,56 @@ lm <- lm(data = daily_bat_discharge, TotalCalls ~ DailyTemp + TallVeg + discharg
 summary(lm)
 ```
 
-The model is significant (p < 0.001) with an R² value of 0.038, meaning this model only explains about 3.8% of the variability in the number of bat calls.
+The model is significant (p \< 0.001) with an R² value of 0.038, meaning this model only explains about 3.8% of the variability in the number of bat calls.
 
-All three variables (daily temperature, tall vegetation cover, and discharge) were found to be significant (p < 0.001) predictors of the number of bat calls. We therefore reject the null hypothesis and accept the alternative hypothesis that daily temperature, tall vegetation cover, and discharge predict the number of bat calls. The coefficients of the variables show that with an increase of 1.26 °C in daily temperature, the number of bat calls increases by 1. An increase of 15.0 in the ratio of tall vegetation cover results in an increase of the number of bat calls by 1. A decrease of 0.004 in river discharge results in an increase of the number of bat calls by 1.
+All three variables (daily temperature, tall vegetation cover, and discharge) were found to be significant (p \< 0.001) predictors of the number of bat calls. We therefore reject the null hypothesis and accept the alternative hypothesis that daily temperature, tall vegetation cover, and discharge predict the number of bat calls. The coefficients of the variables show that with an increase of 1.26 °C in daily temperature, the number of bat calls increases by 1. An increase of 15.0 in the ratio of tall vegetation cover results in an increase of the number of bat calls by 1. A decrease of 0.004 in river discharge results in an increase of the number of bat calls by 1.
 
-### Question 2: How did discharge in the Colorado River change during the course of the bat study (2017-2021)?
+We checked the fit of this model with residual and qq plots. Figure 4.1 shows that the model fit relativly well, although there may be a few potentual outliers.
+
+```{r residual, echo=F, warning=F, message=F, fig.cap="Residual plots to check the fit of the model", fig.width=9}
+par(mfrow = c(2,2), mar=c(4,4,4,4))
+plot(lm)
+par(mfrow = c(1,1))
+```
+
+To best visualize the significant relationship between temperature, vegetation cover, and discharge and the number of recorded bat calls, we plotted these variables below (Figures 4.2, 4.3, & 4.4).
+
+```{r temp, echo=F, warning=F, message=F, fig.cap="Temperature and number of bat calls", fig.width=9}
+temp_calls_plot <- ggplot(daily_bat_discharge, aes(x = DailyTemp, y = TotalCalls)) +
+  geom_point(size=1, alpha=0.7, color="steelblue4") +
+  ylab("# of Bat Calls") +
+  xlab("Daily Temperature (°C)") +
+  geom_smooth(method = "lm", col = "palevioletred4", se = F)
+print(temp_calls_plot)
+```
+
+```{r veg, echo=F, warning=F, message=F, fig.cap="Vegetation cover and number of bat calls", fig.width=9}
+veg_calls_plot <- ggplot(daily_bat_discharge, aes(x = TallVeg, y = TotalCalls)) +
+  geom_point(size=1, alpha=0.7, color="steelblue4") +
+  ylab("# of Bat Calls") +
+  xlab("Tall Vegetation Cover") +
+  geom_smooth(method = "lm", col = "palevioletred4", se = F)
+print(veg_calls_plot)
+```
+
+```{r dis, echo=F, warning=F, message=F, fig.cap="Discharge and number of bat calls", fig.width=9}
+dis_calls_plot <- ggplot(daily_bat_discharge, aes(x = discharge, y = TotalCalls)) +
+  geom_point(size=1, alpha=0.7, color="steelblue4") +
+  ylab("# of Bat Calls") +
+  xlab("Discharge (ft³/sec)") +
+  geom_smooth(method = "lm", col = "palevioletred4", se = F)
+print(dis_calls_plot)
+```
+
+## Question 2: How did discharge in the Colorado River change during the course of the bat study (2017-2021)?
 
 H₀: There is no significant change in discharge.
 
 Hₐ: There is a significant change in discharge.
 
-A time series object of the Colorado River discharge was created to understand changes over time during the time span of the bat activity study (2017-2020). I then decomposed the time series object to analyze the trend, seasonality, and remainder of the data (Figure 5).
+A time series object of the Colorado River discharge was created to understand changes over time during the time span of the bat activity study (2017-2020). I then decomposed the time series object to analyze the trend, seasonality, and remainder of the data (Figure 4.5).
 
-```{r, echo=F, warning=F, message=F, fig.cap="Figure 5: Decomposed components of the Colorado River discharge time series"}
+```{r decomp, echo=F, warning=F, message=F, fig.cap="Decomposed components of the Colorado River discharge time series", fig.width=9}
 f_month <- month(first(daily_discharge_processed$Date))
 f_year <- year(first(daily_discharge_processed$Date))
 f_day <- day(first(daily_discharge_processed$Date))
@@ -279,11 +328,11 @@ daily_discharge_trend <- trend::smk.test(daily_discharge_ts)
 daily_discharge_trend
 ```
 
-The seasonal Mann-Kendall test found a statistically significant trend in discharge of the Colorado River in Grand Canyon, AZ (p < 0.001). We therefore reject the null hypothesis and accept the alternative hypothesis that Colorado River discharge changed significantly from 2017 through 2020. The negative "S" value tells us that the significant trend in discharge was negative. 
+The seasonal Mann-Kendall test found a statistically significant trend in discharge of the Colorado River in Grand Canyon, AZ (p \< 0.001). We therefore reject the null hypothesis and accept the alternative hypothesis that Colorado River discharge changed significantly from 2017 through 2020. The negative "S" value tells us that the significant trend in discharge was negative.
 
-I then removed the seasonality component of the time series object (Figure 6) and ran the Mann-Kendall test.
+I then removed the seasonality component of the time series object (Figure 4.6) and ran the Mann-Kendall test.
 
-```{r, echo=F, warning=F, message=F, fig.cap = "Figure 6: Non-seasonal discharge for the Colorado River during the bat study (2017-2020)"}
+```{r ns, echo=F, warning=F, message=F, fig.cap = "Non-seasonal discharge for the Colorado River during the bat study (2017-2020)", fig.width=9}
 daily_discharge_components <- 
   as.data.frame(daily_discharge_decomposed$time.series[,2:3])
 daily_discharge_nonseasonal <- 
@@ -312,19 +361,15 @@ daily_discharge_nonseasonal_trend <-
 daily_discharge_nonseasonal_trend
 ```
 
-The Mann-Kendall test still found a statistically significant negative trend in discharge of the Colorado River in Grand Canyon, AZ (p < 0.001, tau ~ -0.14). 
-
-\newpage
+The Mann-Kendall test still found a statistically significant negative trend in discharge of the Colorado River in Grand Canyon, AZ (p \< 0.001, tau \~ -0.14).
 
 # Summary and Conclusions
 
-This study found that temperature, vegetation cover, and discharge predict the number of recorded bat calls (p < 0.001, n = 1428, R² = 0.038). Bat activity appears to increase with higher temperatures, more vegetation cover, and lower discharge. However, the low R² value indicates that the model does not explain much of the variability in the number of recorded bat calls. More explanatory variables would be necessary to better understand what causes changes in the number of bat calls recorded along the Colorado River in Grand Canyon, AZ.
+This study found that temperature, vegetation cover, and discharge predict the number of recorded bat calls (p \< 0.001, n = 1428, R² = 0.038). Bat activity appears to increase with higher temperatures, more vegetation cover, and lower discharge. However, the low R² value indicates that the model does not explain much of the variability in the number of recorded bat calls. More explanatory variables would be necessary to better understand what causes changes in the number of bat calls recorded along the Colorado River in Grand Canyon, AZ.
 
 These results only partially support my original hypothesis that an increase in temperature and prey availability will result in an increase in bat calls. Surprisingly, prey availability was not found to be a significant predictor of the number of recorded bat calls.
 
-This study also found that Colorado River discharge in Grand Canyon significantly decreased over the course of the bat survey, from 2017 through 2020 (p < 0.001, S = -222). This supports my hypothesis that discharge in the Colorado River significantly decreased from 2017 to 2021. The Colorado River has been experiencing extreme drought conditions for many years, and the results from this time series analysis support that fact.
-
-\newpage
+This study also found that Colorado River discharge in Grand Canyon significantly decreased over the course of the bat survey, from 2017 through 2020 (p \< 0.001, S = -222). This supports my hypothesis that discharge in the Colorado River significantly decreased from 2017 to 2021. The Colorado River has been experiencing extreme drought conditions for many years, and the results from this time series analysis support that fact.
 
 # References
 
