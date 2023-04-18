@@ -53,7 +53,8 @@ bat_data_raw$Site<-as.factor(bat_data_raw$Site)
 #wrangling data to include only variables of interest for linear model
 bat_data_processed <-
   bat_data_raw %>%
-  select(Date, LunarPhase, DailyTemp, Site, TotalCalls, TotalPreyRate)
+  select(Date, LunarPhase, DailyTemp, Site, TallVegByMSU, TotalCalls, TotalPreyRate) %>%
+  rename(TallVeg = TallVegByMSU)
 
 #bat_data_species <-
   #bat_data_raw %>%

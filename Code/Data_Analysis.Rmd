@@ -14,7 +14,6 @@ ggplot(daily_discharge_processed, aes(x = Date, y = discharge)) +
   geom_line() +
   ylab("Discharge (units)") +
   xlab("Year") +
-  geom_smooth(method = lm, col = "royalblue") +
   ggtitle("Colorado River Discharge during Bat Monitoring") +
   scale_x_date(breaks = "years", date_labels = "%Y") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
@@ -42,6 +41,36 @@ daily_discharge_trend
 summary(daily_discharge_trend)
 
 #there is a statistically significant trend (with seasonality)
+
+#Extracting all components and adding together the trend and remainder
+daily_discharge_components <- 
+  as.data.frame(daily_discharge_decomposed$time.series[,2:3])
+
+daily_discharge_nonseasonal <- 
+  mutate(daily_discharge_components,
+         Non_seasonal = trend + remainder,
+         Date = daily_discharge_processed$Date)
+
+#16
+daily_discharge_nonseasonal_ts <- 
+  ts(daily_discharge_nonseasonal$Non_seasonal, 
+                               start = c(f_year, f_month, f_day), 
+                               frequency = 365) #creating time series object
+
+#running non-seasonal Mann-Kendall on monthly average after removing seasonality
+daily_discharge_nonseasonal_trend <-
+  trend::mk.test(daily_discharge_nonseasonal_ts)
+daily_discharge_nonseasonal_trend
+
+ns_discharge_plot <- #plotting discharge over time
+ggplot(daily_discharge_nonseasonal, aes(x = Date, y = Non_seasonal)) +
+  geom_point(size=1, alpha=0.7, color="steelblue4") +
+  geom_line(lwd=0.1, color = "steelblue2") +
+  ylab("Discharge (units)") +
+  xlab("Year") +
+  geom_smooth(method = "lm", color = "palevioletred4", se = F) +
+  scale_x_date(breaks = "years", date_labels = "%Y")
+print(ns_discharge_plot)
 ```
 
 ```{r spatial}
@@ -75,7 +104,6 @@ overview_map@map %>% setView(-112.0777, 36.2, zoom = 8)
 ???
   
 #plots
-bat_plot <-
 ggplot(daily_bat_discharge, aes(x = Date, y = TotalCalls)) +
   geom_point() +
   ylab("# of Bat Calls") +
@@ -118,12 +146,12 @@ aov_bat_lunar <- aov(data = daily_bat_discharge, TotalCalls ~ LunarPhase)
 summary(aov_bat_lunar)
 
 #running AIC to determine which set of variables if best to predict # bat calls
-aic_all <- lm(data = daily_bat_discharge, TotalCalls ~ DailyTemp + TallVegByMSU + LunarPhase + TotalPreyRate + discharge)
+aic_all <- lm(data = daily_bat_discharge, TotalCalls ~ DailyTemp + TallVeg + LunarPhase + TotalPreyRate + discharge)
 step(aic_all)
 
 #running multiple regression on variables from AIC
-lm_all <- lm(data = daily_bat_discharge, TotalCalls ~ DailyTemp + TallVegByMSU + LunarPhase + TotalPreyRate + discharge)
-summary(lm_all)
+lm <- lm(data = daily_bat_discharge, TotalCalls ~ DailyTemp + TallVeg + discharge)
+summary(lm)
 
 #ancova <- aov(data = daily_bat_discharge, TotalCalls ~ DailyTemp + LunarPhase + TotalPreyRate + discharge)
 #Anova(ancova, type = "III")
